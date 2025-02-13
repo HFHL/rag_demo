@@ -1,0 +1,27 @@
+
+# Retriever configurations
+retriever:
+  embedding_models:
+    # 多语言模型
+    multilingual:
+      - "sentence-transformers/all-MiniLM-L6-v2"  # 支持96种语言
+      - "BAAI/bge-large-zh-v1.5"  # 中英双语
+      - "BAAI/bge-base-zh-v1.5"
+      - "intfloat/multilingual-e5-large"  # 多语言支持
+      - "BAAI/bge-m3"  # 多语言支持
+      
+    # 英文模型
+    english:
+      - "sentence-transformers/all-mpnet-base-v2"
+      - "sentence-transformers/msmarco-bert-base-dot-v5" 
+      - "thenlper/gte-large"  # General Text Embeddings
+      - "intfloat/e5-large-v2"
+      
+    # 中文模型  
+    chinese:
+      - "BAAI/bge-large-zh"
+      - "moka-ai/m3e-large"
+      - "sensenova/piccolo-large-zh"
+
+  # 当前使用的模型
+  active_model: "BAAI/bge-m3"
