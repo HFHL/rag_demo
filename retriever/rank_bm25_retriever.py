@@ -9,7 +9,7 @@ class RankBM25Retriever(Retriever):
         Initialize BM25 retriever
         Args:
             corpus: List of tokenized documents
-            raw_docs: Original documents for return
+            raw_docs: Original documents with metadata
         """
         self.bm25 = BM25Okapi(corpus)
         self.raw_docs = raw_docs
@@ -23,12 +23,12 @@ class RankBM25Retriever(Retriever):
 
     def retrieve(self, query: str, top_k: int = 5):
         """
-        Retrieve most relevant documents for query
+        Retrieve most relevant documents
         Args:
             query: Query string
             top_k: Number of documents to return
         Returns:
-            List of top k relevant documents
+            List of formatted documents
         """
         # 对查询进行分词
         tokenized_query = query.lower().split()
@@ -41,11 +41,17 @@ class RankBM25Retriever(Retriever):
         results = []
         for idx in top_n:
             doc = self.raw_docs[idx]
-            if isinstance(doc, dict):
-                # 如果是字典格式,拼接title和text
-                results.append(f"{doc['title']}\n{doc['text']}")
-            elif isinstance(doc, str):
-                results.append(doc)
+            
+            if doc.get('type') == 'title':
+                # 如果是标题文档
+                result = f"Title: {doc['text']}"
+            elif doc.get('type') == 'paragraph':
+                # 如果是段落文档
+                result = f"Title: {doc['title']}\nContent: {doc['text']}"
             else:
-                results.append(str(doc))
+                # 向后兼容,处理旧格式文档
+                result = str(doc)
+                
+            results.append(result)
+            
         return results

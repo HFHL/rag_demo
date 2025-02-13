@@ -58,7 +58,7 @@ def main():
         
         # 测试查询
         query = "What is National Australia Bank?"
-        top_k = 3
+        top_k = 5
         
         print(f"\nQuery: {query}")
         

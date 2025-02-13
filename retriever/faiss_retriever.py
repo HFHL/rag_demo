@@ -47,28 +47,36 @@ class FaissRetriever(Retriever):
 
     def retrieve(self, query: str, top_k: int = 5):
         """
-        Retrieve most relevant documents for query
+        Retrieve most relevant documents
         Args:
             query: Query string
             top_k: Number of documents to return
         Returns:
-            List of top k relevant documents
+            List of formatted documents
         """
         # 编码查询
         query_vector = self.encoder.encode(query)
         query_vector = np.array([query_vector]).astype('float32')
         
-        # 搜索最相似的文档
+        # 搜索
         distances, indices = self.index.search(query_vector, top_k)
         
         # 返回原始文档
         results = []
         for idx in indices[0]:
-            if isinstance(self.raw_docs[idx], dict):
-                # 如果是字典格式,拼接title和text
-                doc = self.raw_docs[idx]
-                results.append(f"{doc['title']}\n{doc['text']}")
+            doc = self.raw_docs[idx]
+            
+            if doc.get('type') == 'title':
+                # 如果是标题文档
+                result = f"Title: {doc['text']}"
+            elif doc.get('type') == 'paragraph':
+                # 如果是段落文档
+                result = f"Title: {doc['title']}\nContent: {doc['text']}"
             else:
-                results.append(self.raw_docs[idx])
+                # 向后兼容,处理旧格式文档
+                result = str(doc)
+                
+            results.append(result)
+            
         return results
 
