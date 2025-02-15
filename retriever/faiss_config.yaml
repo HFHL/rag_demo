@@ -1,0 +1,4 @@
+# FAISS configurations
+faiss:
+  use_gpu: true
+  gpu_id: 0  # 使用第一个GPU

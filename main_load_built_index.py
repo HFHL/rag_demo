@@ -3,6 +3,7 @@ import pickle
 import faiss
 from retriever.rank_bm25_retriever import RankBM25Retriever
 from retriever.faiss_retriever import FaissRetriever
+from retriever.bm25s_retriever import BM25SRetriever
 
 class IndexLoader:
     def __init__(self, index_dir="/home/hhl/rag_test/rag_demo/indexes"):
@@ -10,6 +11,7 @@ class IndexLoader:
         self.index_dir = index_dir
         self.bm25_retriever = None
         self.faiss_retriever = None
+        self.bm25s_retriever = None
         
     def load_bm25_index(self):
         """加载BM25索引"""
@@ -43,10 +45,23 @@ class IndexLoader:
         self.faiss_retriever.index = index
         self.faiss_retriever.dimension = data["dimension"]
     
+    def load_bm25s_index(self):
+        """加载BM25S索引"""
+        bm25s_path = os.path.join(self.index_dir, "bm25s")
+        if not os.path.exists(bm25s_path):
+            raise FileNotFoundError(f"BM25S index not found at {bm25s_path}")
+            
+        print(f"Loading BM25S index from {bm25s_path}")
+        # 创建空的检索器实例
+        self.bm25s_retriever = BM25SRetriever()
+        # 加载保存的索引
+        self.bm25s_retriever.load(bm25s_path)
+    
     def load_all_indexes(self):
         """加载所有索引"""
         self.load_bm25_index()
-        self.load_faiss_index()
+        self.load_bm25s_index()
+        # self.load_faiss_index()
 
 def main():
     # 初始化加载器
@@ -71,16 +86,27 @@ def main():
             # 限制输出长度
             preview = doc_text[:200] + "..." if len(doc_text) > 200 else doc_text
             print(f"\n{i}. {preview}")
-            
-        # FAISS检索结果
-        print("\nFAISS Results:")
-        faiss_results = loader.faiss_retriever.retrieve(query, top_k=top_k)
-        for i, doc in enumerate(faiss_results, 1):
+        
+
+        print("\nBM25s Results:")
+        # BM25S检索结果        print("\nBM25S Results:")
+        bm25s_results = loader.bm25s_retriever.retrieve(query, top_k=top_k)
+        for i, doc in enumerate(bm25s_results, 1):
             # 确保doc是字符串类型
             doc_text = str(doc)
             # 限制输出长度
             preview = doc_text[:200] + "..." if len(doc_text) > 200 else doc_text
             print(f"\n{i}. {preview}")
+            
+        # FAISS检索结果
+        print("\nFAISS Results:")
+        # faiss_results = loader.faiss_retriever.retrieve(query, top_k=top_k)
+        # for i, doc in enumerate(faiss_results, 1):
+        #     # 确保doc是字符串类型
+        #     doc_text = str(doc)
+        #     # 限制输出长度
+        #     preview = doc_text[:200] + "..." if len(doc_text) > 200 else doc_text
+        #     print(f"\n{i}. {preview}")
             
     except FileNotFoundError as e:
         print(f"Error: {e}")
