@@ -88,7 +88,7 @@ def decompress_and_remove(root_dir: str, output_dir: str, batch_size: int = 10) 
             print(f"Completed batch {i//batch_size + 1}")
 
 if __name__ == "__main__":
-    root_directory = "./data/downloaded_file.tar.bz2"
+    root_directory = "./data/enwiki-20171001-pages-meta-current-withlinks-processed"
     output_directory = "./decompressed_files"
     # 设置批处理大小为20
     decompress_and_remove(root_directory, output_directory, batch_size=20)

@@ -1,104 +1,98 @@
-import os
-import pickle
-from typing import List, Tuple
+from rank_bm25 import BM25Okapi  # 替换为更可靠的BM25实现
 import numpy as np
-import bm25s
-import Stemmer
-from .retriever import Retriever
+import json
+import os
 
-class BM25Retriever:
-    def retrieve(self, question):
-        # 这里实现BM25检索逻辑
-        return ["相关文档1", "相关文档2"]
-
-class BM25SRetriever(Retriever):
-    def __init__(self, texts: List[str] = None, raw_docs: List[dict] = None):
-        """
-        初始化BM25S检索器
-        Args:
-            texts: 文档文本列表
-            raw_docs: 原始文档列表(包含metadata)
-        """
-        self.raw_docs = raw_docs
-        self.texts = texts
-        self.stemmer = Stemmer.Stemmer('english')
-        self.retriever = bm25s.BM25()
-        
-        if texts is not None:
-            self._build_index(texts)
-    
-    def _build_index(self, texts: List[str]):
-        """构建索引"""
-        # 对文档进行分词和stemming
-        corpus_tokens = bm25s.tokenize(texts, 
-                                     stopwords="en",
-                                     stemmer=self.stemmer)
-        # 构建索引
-        self.retriever.index(corpus_tokens)
-        self.corpus_tokens = corpus_tokens
-
-    def retrieve(self, query: str, top_k: int = 5) -> List[str]:
-        """
-        检索相关文档
-        Args:
-            query: 查询字符串
-            top_k: 返回前k个结果
-        Returns:
-            检索到的文档列表
-        """
-        # 对查询进行分词和stemming
-        query_tokens = bm25s.tokenize(query, stemmer=self.stemmer)
-        
-        # 检索
-        results, scores = self.retriever.retrieve(query_tokens, k=top_k)
-        
-        # 返回原始文档
-        retrieved_docs = []
-        for i in range(results.shape[1]):
-            doc_id = results[0, i]
-            doc = self.raw_docs[doc_id]
-            if doc.get('type') == 'title':
-                result = f"Title: {doc['text']}"
-            elif doc.get('type') == 'paragraph':
-                result = f"Title: {doc['title']}\nContent: {doc['text']}"
-            else:
-                result = str(doc)
-            retrieved_docs.append(result)
+class BM25SRetriever:
+    def __init__(self, documents=None, raw_documents=None):
+        """初始化检索器"""
+        self.documents = documents if documents else []
+        self.raw_documents = raw_documents if raw_documents else []
+        self.bm25 = None
+        if documents:
+            self._build_index()
             
-        return retrieved_docs
-
-    def save(self, path: str):
-        """
-        保存检索器
-        Args:
-            path: 保存路径
-        """
-        # 创建目录
+    def _build_index(self):
+        """构建BM25索引"""
+        # 对文档进行分词
+        tokenized_corpus = [doc.split() for doc in self.documents]
+        self.bm25 = BM25Okapi(tokenized_corpus)
+        
+    def add_documents(self, new_documents, new_raw_documents):
+        """添加新文档到索引"""
+        if not self.documents:
+            self.documents = new_documents
+            self.raw_documents = new_raw_documents
+        else:
+            self.documents.extend(new_documents)
+            self.raw_documents.extend(new_raw_documents)
+        self._build_index()  # 重新构建索引
+        
+    def search(self, query, top_k=10):
+        """搜索最相关的文档"""
+        if not self.bm25:
+            return []
+            
+        # 对查询进行分词
+        tokenized_query = query.lower().split()
+        
+        # 获取文档得分
+        doc_scores = self.bm25.get_scores(tokenized_query)
+        
+        # 获取top_k个最相关文档的索引
+        top_indices = np.argsort(doc_scores)[-top_k:][::-1]
+        
+        # 构建结果
+        results = []
+        for idx in top_indices:
+            results.append({
+                'score': float(doc_scores[idx]),  # 转换为Python float
+                'document': self.documents[idx],
+                'metadata': self.raw_documents[idx]
+            })
+            
+        return results
+        
+    def save(self, path):
+        """保存索引到文件"""
         os.makedirs(path, exist_ok=True)
         
-        # 保存BM25S模型
-        self.retriever.save(os.path.join(path, "bm25s_model"))
+        # 保存文档数据
+        save_data = {
+            'documents': self.documents,
+            'raw_documents': self.raw_documents
+        }
         
-        # 保存其他数据
-        with open(os.path.join(path, "retriever_data.pkl"), "wb") as f:
-            pickle.dump({
-                "raw_docs": self.raw_docs,
-                "texts": self.texts,
-                "corpus_tokens": self.corpus_tokens
-            }, f)
+        save_path = os.path.join(path, "index_data.json")
+        with open(save_path, 'w', encoding='utf-8') as f:
+            json.dump(save_data, f, ensure_ascii=False)
+            
+    @classmethod
+    def load(cls, path):
+        """从文件加载索引"""
+        save_path = os.path.join(path, "index_data.json")
+        
+        if not os.path.exists(save_path):
+            return cls()
+            
+        with open(save_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        instance = cls(
+            documents=data['documents'],
+            raw_documents=data['raw_documents']
+        )
+        
+        return instance
 
-    def load(self, path: str):
-        """
-        加载检索器
-        Args:
-            path: 加载路径
-        """
-        # 加载BM25S模型
-        self.retriever = bm25s.BM25.load(os.path.join(path, "bm25s_model"))
-        
-        # 加载其他数据
-        with open(os.path.join(path, "retriever_data.pkl"), "rb") as f:
-            data = pickle.load(f)
-            self.raw_docs = data["raw_docs"]
-            self.texts = data["texts"] 
-            self.corpus_tokens = data["corpus_tokens"]
+    def get_document_count(self):
+        """获取索引中的文档数量"""
+        return len(self.documents)
+
+    def get_statistics(self):
+        """获取索引统计信息"""
+        return {
+            'document_count': len(self.documents),
+            'has_index': self.bm25 is not None,
+            'average_document_length': np.mean([len(doc.split()) for doc in self.documents]) if self.documents else 0
+        }

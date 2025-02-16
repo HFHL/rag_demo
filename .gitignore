@@ -32,6 +32,8 @@ ENV/
 env/
 .env
 
+.venv
+
 # IDE
 .idea/
 .vscode/
@@ -46,3 +48,5 @@ env/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+/decompressed_files

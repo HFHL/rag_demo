@@ -12,6 +12,7 @@ class IndexLoader:
         self.bm25_retriever = None
         self.faiss_retriever = None
         self.bm25s_retriever = None
+        self.rank_bm25_retriever = RankBM25Retriever()
         
     def load_bm25_index(self):
         """加载BM25索引"""
@@ -20,8 +21,7 @@ class IndexLoader:
             raise FileNotFoundError(f"BM25 index not found at {bm25_path}")
             
         print(f"Loading BM25 index from {bm25_path}")
-        with open(bm25_path, 'rb') as f:
-            self.bm25_retriever = pickle.load(f)
+        self.bm25_retriever = RankBM25Retriever.load(bm25_path)
     
     def load_faiss_index(self):
         """加载FAISS索引"""
@@ -79,24 +79,39 @@ def main():
         
         # BM25检索结果
         print("\nBM25 Results:")
-        bm25_results = loader.bm25_retriever.retrieve(query, top_k=top_k)
-        for i, doc in enumerate(bm25_results, 1):
-            # 确保doc是字符串类型
-            doc_text = str(doc)
-            # 限制输出长度
+        tokenized_query = query.lower().split()  # 对查询进行分词
+        bm25_results = loader.bm25_retriever.search(tokenized_query, top_k=top_k)
+        for i, result in enumerate(bm25_results, 1):
+            if isinstance(result, dict):
+                doc_text = result.get('document', str(result))
+            else:
+                doc_text = str(result)
+            preview = doc_text[:200] + "..." if len(doc_text) > 200 else doc_text
+            print(f"\n{i}. {preview}")
+
+        print("\nBM25s Results:")
+        # BM25S检索结果
+        bm25s_results = loader.bm25s_retriever.search(query, top_k=top_k)
+        for i, result in enumerate(bm25s_results, 1):
+            if isinstance(result, dict):
+                doc_text = result.get('document', str(result))
+            else:
+                doc_text = str(result)
+            preview = doc_text[:200] + "..." if len(doc_text) > 200 else doc_text
+            print(f"\n{i}. {preview}")
+
+        # RankBM25检索结果
+        print("\nRankBM25 Results:")
+        tokenized_query = query.lower().split()  # 对查询进行分词
+        rank_bm25_results = loader.rank_bm25_retriever.search(tokenized_query, top_k=top_k)  # 改用search方法
+        for i, result in enumerate(rank_bm25_results, 1):
+            if isinstance(result, dict):
+                doc_text = result.get('document', str(result))
+            else:
+                doc_text = str(result)
             preview = doc_text[:200] + "..." if len(doc_text) > 200 else doc_text
             print(f"\n{i}. {preview}")
         
-
-        print("\nBM25s Results:")
-        # BM25S检索结果        print("\nBM25S Results:")
-        bm25s_results = loader.bm25s_retriever.retrieve(query, top_k=top_k)
-        for i, doc in enumerate(bm25s_results, 1):
-            # 确保doc是字符串类型
-            doc_text = str(doc)
-            # 限制输出长度
-            preview = doc_text[:200] + "..." if len(doc_text) > 200 else doc_text
-            print(f"\n{i}. {preview}")
             
         # FAISS检索结果
         print("\nFAISS Results:")
